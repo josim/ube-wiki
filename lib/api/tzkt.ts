@@ -1,7 +1,6 @@
 import {
   TZKT_API,
-  REGISTRY_CONTRACT,
-  PROPOSAL_CONTRACT,
+  WIKI_CONTRACT,
   MULTISIG_CONTRACT,
   MODERATOR_CONTRACT,
 } from '@/lib/constants'
@@ -70,7 +69,7 @@ interface PageUpdatedEvent {
 
 export async function fetchPageSlugs(): Promise<string[]> {
   const events = await fetchEvents<PageCreatedEvent>(
-    REGISTRY_CONTRACT,
+    WIKI_CONTRACT,
     'page_created',
     '&limit=10000'
   )
@@ -84,35 +83,45 @@ export async function fetchPageWithVersions(
   versions: { cid: string; editor: string; ts: string; version: string }[]
 } | null> {
   const slugParam = `&payload.slug=${encodeURIComponent(slug)}`
+  const pageSlugParam = `&payload.page_slug=${encodeURIComponent(slug)}`
 
-  const [created, updated] = await Promise.all([
-    fetchEvents<PageCreatedEvent>(REGISTRY_CONTRACT, 'page_created', slugParam),
-    fetchEvents<PageUpdatedEvent>(REGISTRY_CONTRACT, 'page_updated', slugParam),
+  const [created, updated, approved] = await Promise.all([
+    fetchEvents<PageCreatedEvent>(WIKI_CONTRACT, 'page_created', slugParam),
+    fetchEvents<PageUpdatedEvent>(WIKI_CONTRACT, 'page_updated', slugParam),
+    fetchEvents<WikiProposalApprovedEvent>(WIKI_CONTRACT, 'proposal_approved', pageSlugParam),
   ])
 
   if (created.length === 0) return null
 
-  const latestUpdate = updated.length > 0
-    ? updated.reduce((a, b) =>
-        parseInt(a.payload.version, 10) >= parseInt(b.payload.version, 10) ? a : b
-      )
-    : null
-  const currentCid = latestUpdate ? latestUpdate.payload.cid : created[0].payload.cid
+  // Merge all events into a single list sorted by timestamp
+  const versions: { cid: string; editor: string; ts: string }[] = []
 
-  const versions = []
   const c = created[0].payload
-  versions.push({ cid: c.cid, editor: c.editor, ts: c.timestamp, version: '1' })
+  versions.push({ cid: c.cid, editor: c.editor, ts: c.timestamp })
 
   for (const u of updated) {
     versions.push({
       cid: u.payload.cid,
       editor: u.payload.editor,
       ts: u.payload.timestamp,
-      version: u.payload.version,
     })
   }
 
-  return { cid: currentCid, versions }
+  for (const a of approved) {
+    versions.push({
+      cid: a.payload.proposed_cid,
+      editor: a.payload.approved_by,
+      ts: a.payload.timestamp,
+    })
+  }
+
+  // Sort by timestamp and assign version numbers
+  versions.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+
+  const numbered = versions.map((v, i) => ({ ...v, version: String(i + 1) }))
+  const currentCid = numbered[numbered.length - 1].cid
+
+  return { cid: currentCid, versions: numbered }
 }
 
 // =========================================================================
@@ -130,7 +139,13 @@ interface WikiProposalCreatedEvent {
 }
 
 interface WikiProposalApprovedEvent {
-  payload: { proposal_id: string }
+  payload: {
+    proposal_id: string
+    page_slug: string
+    proposed_cid: string
+    approved_by: string
+    timestamp: string
+  }
 }
 
 interface WikiProposalRejectedEvent {
@@ -150,9 +165,9 @@ export async function fetchWikiProposals(): Promise<
   }[]
 > {
   const [created, approved, rejected] = await Promise.all([
-    fetchEvents<WikiProposalCreatedEvent>(PROPOSAL_CONTRACT, 'proposal_created', '&limit=10000'),
-    fetchEvents<WikiProposalApprovedEvent>(PROPOSAL_CONTRACT, 'proposal_approved', '&limit=10000'),
-    fetchEvents<WikiProposalRejectedEvent>(PROPOSAL_CONTRACT, 'proposal_rejected', '&limit=10000'),
+    fetchEvents<WikiProposalCreatedEvent>(WIKI_CONTRACT, 'proposal_created', '&limit=10000'),
+    fetchEvents<WikiProposalApprovedEvent>(WIKI_CONTRACT, 'proposal_approved', '&limit=10000'),
+    fetchEvents<WikiProposalRejectedEvent>(WIKI_CONTRACT, 'proposal_rejected', '&limit=10000'),
   ])
 
   const approvedIds = new Set(approved.map((e) => e.payload.proposal_id))
@@ -189,9 +204,9 @@ export async function fetchWikiProposal(id: number): Promise<{
   const idParam = `&payload.proposal_id=${id}`
 
   const [created, approved, rejected] = await Promise.all([
-    fetchEvents<WikiProposalCreatedEvent>(PROPOSAL_CONTRACT, 'proposal_created', idParam),
-    fetchEvents<WikiProposalApprovedEvent>(PROPOSAL_CONTRACT, 'proposal_approved', idParam),
-    fetchEvents<WikiProposalRejectedEvent>(PROPOSAL_CONTRACT, 'proposal_rejected', idParam),
+    fetchEvents<WikiProposalCreatedEvent>(WIKI_CONTRACT, 'proposal_created', idParam),
+    fetchEvents<WikiProposalApprovedEvent>(WIKI_CONTRACT, 'proposal_approved', idParam),
+    fetchEvents<WikiProposalRejectedEvent>(WIKI_CONTRACT, 'proposal_rejected', idParam),
   ])
 
   if (created.length === 0) return null
