@@ -3,12 +3,11 @@
 import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
 import { MultisigProposal, MultisigVote } from '@/lib/multisig/types'
+import { getProfileDisplay } from '@/lib/hooks/queries'
+import { UserProfile } from '@/lib/api/users'
 import { voteOnProposal, executeProposal, isProposalExpired } from '@/lib/multisig/data'
 import { withTransaction } from '@/lib/utils/withTransaction'
-
-function truncateAddress(addr: string) {
-  return addr.length > 15 ? `${addr.slice(0, 7)}…${addr.slice(-4)}` : addr
-}
+import { truncateAddress } from '@/lib/utils'
 
 function formatKind(kind: string): string {
   return kind.replace(/_/g, ' ')
@@ -21,12 +20,14 @@ function formatMutez(mutez: number): string {
 export function ProposalCard({
   proposal,
   votes,
+  profiles,
   threshold,
   expirationDays,
   isSigner,
 }: {
   proposal: MultisigProposal
   votes: MultisigVote[]
+  profiles?: Map<string, UserProfile>
   threshold: number
   expirationDays: number
   isSigner: boolean
@@ -46,6 +47,9 @@ export function ProposalCard({
     : expired
     ? 'bg-danger-bg text-danger-text'
     : 'bg-warning-bg text-warning-text'
+
+  const issuerProfile = getProfileDisplay(profiles, proposal.issuer)
+  const userProfile = proposal.user ? getProfileDisplay(profiles, proposal.user) : null
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['multisig'] })
@@ -87,11 +91,21 @@ export function ProposalCard({
 
       {/* Proposal details by kind */}
       <div className="text-[12px] text-text-secondary mb-2 font-mono bg-bg-secondary rounded-md px-3 py-2">
-        {proposal.kind === 'add_user' && (
-          <span>Add signer: {proposal.user}</span>
+        {proposal.kind === 'add_user' && proposal.user && (
+          <span>
+            Add signer:{' '}
+            <Link href={`/tz/${proposal.user}`} className="hover:underline">
+              {userProfile?.name || proposal.user}
+            </Link>
+          </span>
         )}
-        {proposal.kind === 'remove_user' && (
-          <span>Remove signer: {proposal.user}</span>
+        {proposal.kind === 'remove_user' && proposal.user && (
+          <span>
+            Remove signer:{' '}
+            <Link href={`/tz/${proposal.user}`} className="hover:underline">
+              {userProfile?.name || proposal.user}
+            </Link>
+          </span>
         )}
         {proposal.kind === 'text' && (
           <span>Text: {proposal.text}</span>
@@ -127,8 +141,13 @@ export function ProposalCard({
       </div>
 
       {/* Meta */}
-      <div className="text-[11px] text-text-tertiary mb-1.5">
-        <Link href={`/tz/${proposal.issuer}`} className="font-mono hover:underline">{truncateAddress(proposal.issuer)}</Link>
+      <div className="text-[11px] text-text-tertiary mb-1.5 flex items-center gap-1">
+        <Link
+          href={`/tz/${proposal.issuer}`}
+          className={`hover:underline ${issuerProfile.name ? 'text-text-secondary font-medium' : 'font-mono'}`}
+        >
+          {issuerProfile.name || truncateAddress(proposal.issuer)}
+        </Link>
         {' · '}
         {proposal.timestamp}
         {' · '}
@@ -140,19 +159,33 @@ export function ProposalCard({
       {/* Votes list */}
       {votes.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {votes.map((v) => (
-            <Link
-              key={v.voter}
-              href={`/tz/${v.voter}`}
-              className={`text-[10px] px-1.5 py-0.5 rounded-md font-mono hover:opacity-80 ${
-                v.approval
-                  ? 'bg-success-bg text-success-text'
-                  : 'bg-danger-bg text-danger-text'
-              }`}
-            >
-              {truncateAddress(v.voter)} {v.approval ? '✓' : '✗'}
-            </Link>
-          ))}
+          {votes.map((v) => {
+            const voterProfile = getProfileDisplay(profiles, v.voter)
+            return (
+              <Link
+                key={v.voter}
+                href={`/tz/${v.voter}`}
+                className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md hover:opacity-80 ${
+                  v.approval
+                    ? 'bg-success-bg text-success-text'
+                    : 'bg-danger-bg text-danger-text'
+                }`}
+              >
+                {voterProfile.avatar && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={voterProfile.avatar}
+                    alt=""
+                    className="w-3.5 h-3.5 rounded-full object-cover"
+                  />
+                )}
+                <span className="font-mono">
+                  {voterProfile.name || truncateAddress(v.voter)}
+                </span>
+                {v.approval ? ' ✓' : ' ✗'}
+              </Link>
+            )
+          })}
         </div>
       )}
 

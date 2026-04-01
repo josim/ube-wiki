@@ -33,6 +33,31 @@ export async function fetchEvents<T>(
   return fetchJson(eventsUrl(contract, tag, extra))
 }
 
+/** Fetch all events with automatic pagination (page size 10,000). */
+async function fetchAllEvents<T extends { id: number }>(
+  contract: string,
+  tag: string,
+  extra = ''
+): Promise<T[]> {
+  const pageSize = 10000
+  const all: T[] = []
+  let offset = 0
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const page = await fetchEvents<T>(
+      contract,
+      tag,
+      `${extra}&limit=${pageSize}&offset=${offset}&sort.asc=id`
+    )
+    all.push(...page)
+    if (page.length < pageSize) break
+    offset += pageSize
+  }
+
+  return all
+}
+
 /** Generic: fetch bigmap keys for a contract's named bigmap. */
 export async function fetchBigmapKeys<T>(
   contract: string,
@@ -49,6 +74,7 @@ export async function fetchBigmapKeys<T>(
 // =========================================================================
 
 interface PageCreatedEvent {
+  id: number
   payload: {
     slug: string
     cid: string
@@ -58,6 +84,7 @@ interface PageCreatedEvent {
 }
 
 interface PageUpdatedEvent {
+  id: number
   payload: {
     slug: string
     cid: string
@@ -68,10 +95,9 @@ interface PageUpdatedEvent {
 }
 
 export async function fetchPageSlugs(): Promise<string[]> {
-  const events = await fetchEvents<PageCreatedEvent>(
+  const events = await fetchAllEvents<PageCreatedEvent>(
     WIKI_CONTRACT,
-    'page_created',
-    '&limit=10000'
+    'page_created'
   )
   return Array.from(new Set(events.map((e) => e.payload.slug)))
 }
@@ -93,14 +119,15 @@ export async function fetchPageWithVersions(
 
   if (created.length === 0) return null
 
-  // Merge all events into a single list sorted by timestamp
-  const versions: { cid: string; editor: string; ts: string }[] = []
+  // Merge all events into a single list sorted by TzKT event id (deterministic block-level ordering)
+  const versions: { eventId: number; cid: string; editor: string; ts: string }[] = []
 
-  const c = created[0].payload
-  versions.push({ cid: c.cid, editor: c.editor, ts: c.timestamp })
+  const c = created[0]
+  versions.push({ eventId: c.id, cid: c.payload.cid, editor: c.payload.editor, ts: c.payload.timestamp })
 
   for (const u of updated) {
     versions.push({
+      eventId: u.id,
       cid: u.payload.cid,
       editor: u.payload.editor,
       ts: u.payload.timestamp,
@@ -109,14 +136,15 @@ export async function fetchPageWithVersions(
 
   for (const a of approved) {
     versions.push({
+      eventId: a.id,
       cid: a.payload.proposed_cid,
       editor: a.payload.approved_by,
       ts: a.payload.timestamp,
     })
   }
 
-  // Sort by timestamp and assign version numbers
-  versions.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+  // Sort by event id for deterministic ordering (handles same-block events correctly)
+  versions.sort((a, b) => a.eventId - b.eventId)
 
   const numbered = versions.map((v, i) => ({ ...v, version: String(i + 1) }))
   const currentCid = numbered[numbered.length - 1].cid
@@ -129,6 +157,7 @@ export async function fetchPageWithVersions(
 // =========================================================================
 
 interface WikiProposalCreatedEvent {
+  id: number
   payload: {
     proposal_id: string
     page_slug: string
@@ -139,6 +168,7 @@ interface WikiProposalCreatedEvent {
 }
 
 interface WikiProposalApprovedEvent {
+  id: number
   payload: {
     proposal_id: string
     page_slug: string
@@ -149,6 +179,7 @@ interface WikiProposalApprovedEvent {
 }
 
 interface WikiProposalRejectedEvent {
+  id: number
   payload: { proposal_id: string }
 }
 
@@ -165,9 +196,9 @@ export async function fetchWikiProposals(): Promise<
   }[]
 > {
   const [created, approved, rejected] = await Promise.all([
-    fetchEvents<WikiProposalCreatedEvent>(WIKI_CONTRACT, 'proposal_created', '&limit=10000'),
-    fetchEvents<WikiProposalApprovedEvent>(WIKI_CONTRACT, 'proposal_approved', '&limit=10000'),
-    fetchEvents<WikiProposalRejectedEvent>(WIKI_CONTRACT, 'proposal_rejected', '&limit=10000'),
+    fetchAllEvents<WikiProposalCreatedEvent>(WIKI_CONTRACT, 'proposal_created'),
+    fetchAllEvents<WikiProposalApprovedEvent>(WIKI_CONTRACT, 'proposal_approved'),
+    fetchAllEvents<WikiProposalRejectedEvent>(WIKI_CONTRACT, 'proposal_rejected'),
   ])
 
   const approvedIds = new Set(approved.map((e) => e.payload.proposal_id))
@@ -178,7 +209,7 @@ export async function fetchWikiProposals(): Promise<
       const id = e.payload.proposal_id
       let status = '0'
       if (approvedIds.has(id)) status = '1'
-      if (rejectedIds.has(id)) status = '2'
+      else if (rejectedIds.has(id)) status = '2'
 
       return {
         key: id,
@@ -213,7 +244,7 @@ export async function fetchWikiProposal(id: number): Promise<{
 
   let status = '0'
   if (approved.length > 0) status = '1'
-  if (rejected.length > 0) status = '2'
+  else if (rejected.length > 0) status = '2'
 
   const p = created[0].payload
   return {
@@ -288,6 +319,7 @@ export async function fetchModeratorStorage(): Promise<{
 }
 
 interface ModProposalSubmittedEvent {
+  id: number
   payload: {
     proposal_id: string
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,6 +330,7 @@ interface ModProposalSubmittedEvent {
 }
 
 export interface ModProposalVotedEvent {
+  id: number
   payload: {
     proposal_id: string
     voter: string
@@ -307,6 +340,7 @@ export interface ModProposalVotedEvent {
 }
 
 interface ModProposalExecutedEvent {
+  id: number
   payload: {
     proposal_id: string
     executed_by: string
@@ -326,9 +360,9 @@ export async function fetchModeratorProposals(): Promise<
   }[]
 > {
   const [submitted, voted, executed] = await Promise.all([
-    fetchEvents<ModProposalSubmittedEvent>(MODERATOR_CONTRACT, 'proposal_submitted', '&limit=10000'),
-    fetchEvents<ModProposalVotedEvent>(MODERATOR_CONTRACT, 'proposal_voted', '&sort.asc=id&limit=10000'),
-    fetchEvents<ModProposalExecutedEvent>(MODERATOR_CONTRACT, 'proposal_executed', '&limit=10000'),
+    fetchAllEvents<ModProposalSubmittedEvent>(MODERATOR_CONTRACT, 'proposal_submitted'),
+    fetchAllEvents<ModProposalVotedEvent>(MODERATOR_CONTRACT, 'proposal_voted'),
+    fetchAllEvents<ModProposalExecutedEvent>(MODERATOR_CONTRACT, 'proposal_executed'),
   ])
 
   const executedIds = new Set(executed.map((e) => e.payload.proposal_id))
@@ -351,17 +385,16 @@ export async function fetchModeratorProposals(): Promise<
 }
 
 export async function fetchModeratorVotes(): Promise<ModProposalVotedEvent[]> {
-  return fetchEvents<ModProposalVotedEvent>(
+  return fetchAllEvents<ModProposalVotedEvent>(
     MODERATOR_CONTRACT,
-    'proposal_voted',
-    '&sort.asc=id'
+    'proposal_voted'
   )
 }
 
 export async function fetchModeratorList(): Promise<string[]> {
   const [added, removed] = await Promise.all([
-    fetchEvents<{ id: number; payload: string }>(MODERATOR_CONTRACT, 'moderator_added', '&limit=10000'),
-    fetchEvents<{ id: number; payload: string }>(MODERATOR_CONTRACT, 'moderator_removed', '&limit=10000'),
+    fetchAllEvents<{ id: number; payload: string }>(MODERATOR_CONTRACT, 'moderator_added'),
+    fetchAllEvents<{ id: number; payload: string }>(MODERATOR_CONTRACT, 'moderator_removed'),
   ])
 
   const events = [

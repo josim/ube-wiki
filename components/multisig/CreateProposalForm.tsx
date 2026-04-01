@@ -66,9 +66,16 @@ export function CreateProposalForm({ onClose }: { onClose: () => void }) {
           parseInt(tokenId || '0', 10),
           [{ amount: parseInt(tokenAmount, 10), destination: tokenDestination.trim() }]
         )
-      case 'lambda_function':
+      case 'lambda_function': {
         if (!lambdaCode.trim()) throw new Error('Lambda code required')
-        return () => createLambdaFunctionProposal(JSON.parse(lambdaCode))
+        let parsed
+        try {
+          parsed = JSON.parse(lambdaCode)
+        } catch {
+          throw new Error('Invalid JSON in lambda code')
+        }
+        return () => createLambdaFunctionProposal(parsed)
+      }
       case 'minimum_votes':
         if (!threshold) throw new Error('Minimum votes value required')
         return () => createMinimumVotesProposal(parseInt(threshold, 10))

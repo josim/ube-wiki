@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useMultisigStorage, useMultisigProposals, useAllMultisigVotes, useUserProfiles, getProfileDisplay } from '@/lib/hooks/queries'
 import { isProposalExpired } from '@/lib/multisig/data'
@@ -19,7 +19,21 @@ export function MultisigPage() {
   const [showSigners, setShowSigners] = useState(false)
   const [tab, setTab] = useState<Tab>('pending')
 
-  const { data: profiles } = useUserProfiles(storage?.users ?? [])
+  // Signers + proposal issuers, targets, and voters
+  const profileAddresses = useMemo(() => {
+    const addrs = new Set(storage?.users ?? [])
+    for (const p of proposals) {
+      addrs.add(p.issuer)
+      if (p.user) addrs.add(p.user)
+    }
+    if (allVotes) {
+      for (const votes of Array.from(allVotes.values())) {
+        for (const v of votes) addrs.add(v.voter)
+      }
+    }
+    return Array.from(addrs)
+  }, [storage?.users, proposals, allVotes])
+  const { data: profiles } = useUserProfiles(profileAddresses)
   const isSigner = storage?.users.includes(address || '') ?? false
   const expirationDays = storage?.expiration_time ?? 7
 
@@ -158,6 +172,7 @@ export function MultisigPage() {
               key={p.id}
               proposal={p}
               votes={allVotes?.get(p.id) ?? []}
+              profiles={profiles}
               threshold={storage?.minimum_votes ?? 2}
               expirationDays={expirationDays}
               isSigner={isSigner}

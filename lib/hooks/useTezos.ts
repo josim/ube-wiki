@@ -2,10 +2,26 @@
 
 import { useEffect } from 'react'
 import { useWalletStore } from '@/lib/store/walletStore'
+import { useShallow } from 'zustand/react/shallow'
 
 export function useTezos() {
-  const store = useWalletStore()
-  const { Tezos, setWallet, setKukai, setAddress } = store
+  const { Tezos, setWallet, setKukai, setAddress } = useWalletStore(
+    useShallow((s) => ({
+      Tezos: s.Tezos,
+      setWallet: s.setWallet,
+      setKukai: s.setKukai,
+      setAddress: s.setAddress,
+    }))
+  )
+
+  const address = useWalletStore((s) => s.address)
+  const role = useWalletStore((s) => s.role)
+  const loading = useWalletStore((s) => s.loading)
+  const wallet = useWalletStore((s) => s.wallet)
+  const kukai = useWalletStore((s) => s.kukai)
+  const connectWallet = useWalletStore((s) => s.connectWallet)
+  const connectKukai = useWalletStore((s) => s.connectKukai)
+  const disconnectWallet = useWalletStore((s) => s.disconnectWallet)
 
   useEffect(() => {
     const initClientLibraries = async () => {
@@ -23,7 +39,7 @@ export function useTezos() {
         Tezos.setWalletProvider(walletInstance)
         setWallet(walletInstance)
 
-        // Restore existing session
+        // Restore existing Beacon session
         const activeAccount = await walletInstance.client.getActiveAccount()
         if (activeAccount) {
           setAddress(activeAccount.address)
@@ -37,11 +53,13 @@ export function useTezos() {
         await kukaiInstance.init()
         setKukai(kukaiInstance)
 
-        // Check existing Kukai session
-        const userInfo = kukaiInstance.user
-        if (userInfo) {
-          setAddress(userInfo.pkh)
-          useWalletStore.getState().checkRoles(userInfo.pkh)
+        // Only restore Kukai session if no Beacon session was found
+        if (!activeAccount) {
+          const userInfo = kukaiInstance.user
+          if (userInfo) {
+            setAddress(userInfo.pkh)
+            useWalletStore.getState().checkRoles(userInfo.pkh)
+          }
         }
       } catch (error) {
         console.error('Error initializing client libraries:', error)
@@ -52,5 +70,15 @@ export function useTezos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Tezos])
 
-  return store
+  return {
+    Tezos,
+    wallet,
+    kukai,
+    address,
+    role,
+    loading,
+    connectWallet,
+    connectKukai,
+    disconnectWallet,
+  }
 }

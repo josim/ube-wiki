@@ -67,7 +67,7 @@ export function EditTab({
   const isModerator = canEditPages(role)
 
   const handleSubmit = () => {
-    if (!editorContent.trim() || !address) return
+    if (!editorTitle.trim() || !editorContent.trim() || !address) return
     const message = isModerator ? 'Saving page...' : 'Submitting proposal...'
     const fn = isModerator
       ? () => updatePage(page.slug, editorTitle, editorContent, summary || 'Updated')

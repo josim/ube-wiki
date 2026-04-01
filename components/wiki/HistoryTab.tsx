@@ -9,10 +9,7 @@ import { DiffView } from './DiffView'
 import { useTezos } from '@/lib/hooks/useTezos'
 import { canEditPages } from '@/lib/store/walletStore'
 import { withTransaction } from '@/lib/utils/withTransaction'
-
-function truncateAddress(addr: string) {
-  return addr.length > 15 ? `${addr.slice(0, 7)}…${addr.slice(-4)}` : addr
-}
+import { truncateAddress } from '@/lib/utils'
 
 type View = 'list' | 'version' | 'diff'
 

@@ -23,13 +23,15 @@ async function fetchFromGateways(cid: string, timeout: number): Promise<WikiDocu
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
-    const response = await fetch(`${process.env.NEXT_PUBLIC_IPFS_GATEWAY}${cleanHash}`, {
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-
-    if (response.ok) {
-      return parseWikiDocument(await response.json())
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_IPFS_GATEWAY}${cleanHash}`, {
+        signal: controller.signal,
+      })
+      if (response.ok) {
+        return parseWikiDocument(await response.json())
+      }
+    } finally {
+      clearTimeout(timeoutId)
     }
   } catch {
     // Timeout or network error — fall through to fallback
@@ -39,13 +41,15 @@ async function fetchFromGateways(cid: string, timeout: number): Promise<WikiDocu
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)
-    const response = await fetch(`${process.env.NEXT_PUBLIC_FALLBACK_GATEWAY}${cleanHash}`, {
-      signal: controller.signal,
-    })
-    clearTimeout(timeoutId)
-
-    if (response.ok) {
-      return parseWikiDocument(await response.json())
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_FALLBACK_GATEWAY}${cleanHash}`, {
+        signal: controller.signal,
+      })
+      if (response.ok) {
+        return parseWikiDocument(await response.json())
+      }
+    } finally {
+      clearTimeout(timeoutId)
     }
   } catch {
     // Fallback also failed

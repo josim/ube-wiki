@@ -7,10 +7,7 @@ import { getProfileDisplay } from '@/lib/hooks/queries'
 import { UserProfile } from '@/lib/api/users'
 import { voteOnProposal, executeProposal, isProposalExpired } from '@/lib/moderator/data'
 import { withTransaction } from '@/lib/utils/withTransaction'
-
-function truncateAddress(addr: string) {
-  return addr.length > 15 ? `${addr.slice(0, 7)}…${addr.slice(-4)}` : addr
-}
+import { truncateAddress } from '@/lib/utils'
 
 function formatAction(action: string): string {
   return action.replace(/_/g, ' ')
@@ -91,11 +88,11 @@ export function ProposalCard({
       {/* Action details */}
       <div className="text-[12px] text-text-secondary mb-2 font-mono bg-bg-secondary rounded-md px-3 py-2">
         {(proposal.action === 'add_moderator' ||
-          proposal.action === 'remove_moderator') && (
+          proposal.action === 'remove_moderator') && proposal.address && (
           <span>
             {proposal.action === 'add_moderator' ? 'Add' : 'Remove'} moderator:{' '}
             <Link href={`/tz/${proposal.address}`} className="hover:underline">
-              {proposal.address}
+              {getProfileDisplay(profiles, proposal.address).name || proposal.address}
             </Link>
           </span>
         )}
@@ -113,15 +110,10 @@ export function ProposalCard({
       <div className="text-[11px] text-text-tertiary mb-1.5 flex items-center gap-1">
         <Link
           href={`/tz/${proposal.issuer}`}
-          className="font-mono hover:underline"
+          className={`hover:underline ${issuerProfile.name ? 'text-text-secondary font-medium' : 'font-mono'}`}
         >
-          {truncateAddress(proposal.issuer)}
+          {issuerProfile.name || truncateAddress(proposal.issuer)}
         </Link>
-        {issuerProfile.name && (
-          <span className="text-text-secondary font-medium">
-            {issuerProfile.name}
-          </span>
-        )}
         {' · '}
         {proposal.timestamp}
         {' · '}

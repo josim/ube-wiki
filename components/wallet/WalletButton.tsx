@@ -2,10 +2,7 @@
 
 import { useTezos } from '@/lib/hooks/useTezos'
 import { UserRole } from '@/lib/store/walletStore'
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
-}
+import { truncateAddress } from '@/lib/utils'
 
 const roleBadge: Record<UserRole, { className: string; label: string }> = {
   moderator: {

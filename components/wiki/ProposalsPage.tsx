@@ -1,18 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
 import { WikiProposal } from '@/lib/wiki/types'
 import { getPage, getPageContent, getProposalContent, approveProposal, rejectProposal } from '@/lib/wiki/data'
-import { useProposals, useWikiDocument } from '@/lib/hooks/queries'
+import { useProposals, useWikiDocument, useUserProfiles, getProfileDisplay } from '@/lib/hooks/queries'
 import { useTezos } from '@/lib/hooks/useTezos'
 import { withTransaction } from '@/lib/utils/withTransaction'
 import { DiffView } from './DiffView'
 import { canEditPages } from '@/lib/store/walletStore'
-
-function truncateAddress(addr: string) {
-  return addr.length > 15 ? `${addr.slice(0, 7)}…${addr.slice(-4)}` : addr
-}
+import { truncateAddress } from '@/lib/utils'
 
 const statusBadge: Record<number, { className: string; label: string }> = {
   0: { className: 'bg-warning-bg text-warning-text', label: 'pending' },
@@ -37,6 +35,8 @@ export function ProposalsPage() {
   const queryClient = useQueryClient()
 
   const { data: allProposals = [] } = useProposals()
+  const proposerAddresses = allProposals.map((p) => p.proposer)
+  const { data: profiles } = useUserProfiles(proposerAddresses)
 
   const proposals = showOpen
     ? allProposals.filter((p) => p.status === 0)
@@ -47,8 +47,13 @@ export function ProposalsPage() {
   }
 
   const handleApprove = (id: number) => {
+    const proposal = allProposals.find((p) => p.id === id)
     withTransaction('Approving proposal...', () => approveProposal(id), () => {
       invalidateProposals()
+      // Also invalidate the affected page so version history and content refresh
+      if (proposal) {
+        queryClient.invalidateQueries({ queryKey: ['wiki', 'page', proposal.page_slug] })
+      }
       setPreviewId(null)
       setDiffData(null)
     })
@@ -153,7 +158,9 @@ export function ProposalsPage() {
             No {showOpen ? 'open' : 'closed'} proposals.
           </div>
         ) : (
-          proposals.map((p) => (
+          proposals.map((p) => {
+            const proposerProfile = getProfileDisplay(profiles, p.proposer)
+            return (
             <div
               key={p.id}
               className="border border-border-tertiary rounded-lg px-4 py-3.5 mb-2.5"
@@ -176,9 +183,12 @@ export function ProposalsPage() {
                   {p.page_slug}
                 </strong>{' '}
                 ·{' '}
-                <span className="font-mono">
-                  {truncateAddress(p.proposer)}
-                </span>{' '}
+                <Link
+                  href={`/tz/${p.proposer}`}
+                  className={`hover:underline ${proposerProfile.name ? 'text-text-secondary font-medium' : 'font-mono'}`}
+                >
+                  {proposerProfile.name || truncateAddress(p.proposer)}
+                </Link>{' '}
                 · {p.created_at}
               </div>
               {p.status === 0 && canEditPages(role) && (
@@ -206,7 +216,8 @@ export function ProposalsPage() {
                 </div>
               )}
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </>
