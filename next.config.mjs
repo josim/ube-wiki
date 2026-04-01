@@ -24,7 +24,7 @@ const nextConfig = {
           },
           {
             protocol: 'https',
-            hostname: 'gateway.pinata.cloud',
+            hostname: 'ipfsmsg.teia.art',
           }
         ],
     },

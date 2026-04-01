@@ -13,7 +13,7 @@ import {
   callRejectProposal,
 } from '@/lib/contracts/wiki'
 import { useWalletStore } from '@/lib/store/walletStore'
-import { pinJsonToIPFS } from '@/lib/actions/pinata'
+import { uploadJsonToIPFS } from '@/lib/actions/ipfs'
 import { fetchFromIPFS, fetchWikiDocument } from '@/lib/helpers/ipfs'
 
 // =========================================================================
@@ -93,7 +93,7 @@ export async function createPage(
   summary: string
 ): Promise<void> {
   const doc = buildDocument(content, title, slug, summary)
-  const cid = await pinJsonToIPFS(doc)
+  const cid = await uploadJsonToIPFS(doc)
   if (!cid) throw new Error('Failed to pin content to IPFS')
   await callCreatePage(getTezos(), slug, `ipfs://${cid}`)
 }
@@ -105,7 +105,7 @@ export async function updatePage(
   summary: string
 ): Promise<void> {
   const doc = buildDocument(content, title, slug, summary)
-  const cid = await pinJsonToIPFS(doc)
+  const cid = await uploadJsonToIPFS(doc)
   if (!cid) throw new Error('Failed to pin content to IPFS')
   await callUpdatePage(getTezos(), slug, `ipfs://${cid}`)
 }
@@ -117,7 +117,7 @@ export async function createProposal(
   summary: string
 ): Promise<void> {
   const doc = buildDocument(content, title, pageSlug, summary)
-  const cid = await pinJsonToIPFS(doc)
+  const cid = await uploadJsonToIPFS(doc)
   if (!cid) throw new Error('Failed to pin content to IPFS')
   await callCreateProposal(getTezos(), pageSlug, `ipfs://${cid}`)
 }
