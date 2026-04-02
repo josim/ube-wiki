@@ -10,7 +10,7 @@ export function Landing() {
         </h1>
       </div>
       <p className="text-text-secondary text-sm max-w-sm leading-relaxed">
-        A fully on-chain, decentralized wiki for the teia community.
+        A decentralized wiki for the teia community.
         Content lives on IPFS. Access is enforced by smart contracts.
       </p>
       <Link
