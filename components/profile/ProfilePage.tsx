@@ -32,6 +32,7 @@ export function ProfilePage({ addressOrName }: { addressOrName: string }) {
 
   const displayAddress = profile?.address || addressOrName
   const displayName = profile?.name || ''
+  const displayDomain = profile?.domain || ''
   const displayAvatar = profile?.avatar || ''
   const displayDescription = profile?.description || ''
 
@@ -60,7 +61,9 @@ export function ProfilePage({ addressOrName }: { addressOrName: string }) {
               className="font-mono text-[12px] text-text-tertiary hover:text-text-secondary transition-colors"
               title="Copy full address"
             >
-              {copied ? 'Copied!' : displayAddress}
+              {copied
+                ? 'Copied!'
+                : displayDomain || displayAddress}
             </button>
           </div>
         </div>

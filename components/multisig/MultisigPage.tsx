@@ -19,20 +19,15 @@ export function MultisigPage() {
   const [showSigners, setShowSigners] = useState(false)
   const [tab, setTab] = useState<Tab>('pending')
 
-  // Signers + proposal issuers, targets, and voters
+  // Signers cover issuers and voters. Add proposal targets (add/remove user)
+  // separately — these are the only addresses that might not be signers yet.
   const profileAddresses = useMemo(() => {
     const addrs = new Set(storage?.users ?? [])
     for (const p of proposals) {
-      addrs.add(p.issuer)
       if (p.user) addrs.add(p.user)
     }
-    if (allVotes) {
-      for (const votes of Array.from(allVotes.values())) {
-        for (const v of votes) addrs.add(v.voter)
-      }
-    }
     return Array.from(addrs)
-  }, [storage?.users, proposals, allVotes])
+  }, [storage?.users, proposals])
   const { data: profiles } = useUserProfiles(profileAddresses)
   const isSigner = storage?.users.includes(address || '') ?? false
   const expirationDays = storage?.expiration_time ?? 7

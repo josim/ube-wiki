@@ -17,17 +17,17 @@ export function ModeratorPage() {
   const { data: proposals = [] } = useModeratorProposals()
   const { data: allVotes } = useAllModeratorVotes()
 
-  const allAddresses = useMemo(() => {
+  // Moderators + multisig signers (who are issuers/voters) + proposal targets
+  const profileAddresses = useMemo(() => {
     const addrs = new Set(storage?.moderators ?? [])
+    for (const u of multisigStorage?.users ?? []) addrs.add(u)
     for (const p of proposals) {
-      addrs.add(p.issuer)
-      const votes = allVotes?.get(p.id) ?? []
-      for (const v of votes) addrs.add(v.voter)
+      if (p.address) addrs.add(p.address)
     }
     return Array.from(addrs)
-  }, [storage?.moderators, proposals, allVotes])
+  }, [storage?.moderators, multisigStorage?.users, proposals])
 
-  const { data: profiles } = useUserProfiles(allAddresses)
+  const { data: profiles } = useUserProfiles(profileAddresses)
   const [showCreate, setShowCreate] = useState(false)
   const [showModerators, setShowModerators] = useState(false)
   const [tab, setTab] = useState<Tab>('pending')
