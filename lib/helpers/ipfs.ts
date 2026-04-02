@@ -4,14 +4,14 @@ import type { WikiDocument } from '@/lib/wiki/types'
  * Fetches a WikiDocument from IPFS with dual-gateway fallback.
  * Returns the full WikiDocument object.
  */
-export async function fetchWikiDocument(cid: string, timeout = 5000): Promise<WikiDocument> {
+export async function fetchWikiDocument(cid: string, timeout = 15000): Promise<WikiDocument> {
   return fetchFromGateways(cid, timeout)
 }
 
 /**
  * Fetches a WikiDocument from IPFS and returns just the markdown content string.
  */
-export async function fetchFromIPFS(cid: string, timeout = 5000): Promise<string> {
+export async function fetchFromIPFS(cid: string, timeout = 15000): Promise<string> {
   const doc = await fetchFromGateways(cid, timeout)
   return doc.content
 }
