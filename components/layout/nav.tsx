@@ -36,6 +36,12 @@ export function Nav() {
         >
           Moderator
         </Link>
+        <Link
+          href="/stats"
+          className="text-[13px] text-text-secondary hover:text-text-primary transition-colors"
+        >
+          Stats
+        </Link>
         <WalletButton />
         <ThemeToggle />
       </div>

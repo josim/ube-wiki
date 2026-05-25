@@ -15,3 +15,11 @@ export const TEZOS_DOMAINS_API = 'https://api.tezos.domains/graphql'
 // Teia token (FA2)
 export const TEIA_TOKEN_CONTRACT = 'KT1Mi8MejYS9agBUnhuHGHSvLf6ZVuwMgsM3'
 export const TEIA_TOKEN_ID = 0
+
+// Mainnet TzKT (used only by the /stats page — the rest of the app reads Shadownet)
+export const TZKT_API_MAINNET = 'https://api.tzkt.io/v1'
+export const TZKT_EXPLORER_MAINNET = 'https://tzkt.io'
+
+// Mainnet messaging contracts (the deployed poll_comments and token_comments)
+export const POLL_COMMENTS_CONTRACT_MAINNET = 'KT1FrjJUWKXpJ9nQaNJcwjqCkjMsCcYU5y9o'
+export const TOKEN_COMMENTS_CONTRACT_MAINNET = 'KT1FXFxUcZvne1ApoSaeZfvmDR73u2BsuFUP'

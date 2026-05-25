@@ -32,3 +32,11 @@ export {
   useUserProfile,
   getProfileDisplay,
 } from './profiles'
+
+// Comments stats (mainnet poll_comments + token_comments analytics)
+export {
+  useOverviewStats,
+  usePollStats,
+  useTokenStats,
+  useTokensMetadata,
+} from './commentsStats'
